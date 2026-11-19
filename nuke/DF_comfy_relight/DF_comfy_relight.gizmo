@@ -1,0 +1,576 @@
+Gizmo {
+ knobChanged "import DF_comfy_relight_ui as _u; _u.knob_changed()"
+ tile_color 0xff
+ note_font "Verdana Bold"
+ note_font_color 0xffffffff
+ addUserKnob {20 df_tab_setup l "Setup"}
+ addUserKnob {26 df_banner l "" +STARTLINE T "<img src=df_banner.png width=415>"}
+ addUserKnob {26 df_pack_note l "" +STARTLINE T "<font color='#999' size='2'>Inputs: plug the packed movie from FLP Relight Pack into <b>pack</b>, the first input (Read colourspace = raw), and the node splits out normals, depth, albedo, irradiance and matte. Any separate input you connect overrides its tile.</font>"}
+ addUserKnob {26 df_title l "" +STARTLINE T "<font color='#aaa'>Relight a plate from ComfyUI normals + depth &nbsp;&middot;&nbsp; 8 lights &nbsp;&middot;&nbsp; cast shadows &nbsp;&middot;&nbsp; rim</font>"}
+ addUserKnob {26 df_div_frames l "Frames"}
+ addUserKnob {3 df_first_frame l "passes start at frame" t "The pass movies from ComfyUI start at frame 1. This shifts them so their first frame lands here (1001 for a normal shot). Set to 1 to leave them alone."}
+ df_first_frame 1001
+ addUserKnob {26 df_div_colour l "Colour"}
+ addUserKnob {6 df_ocio_on l "convert albedo / irradiance with OCIO" t "Converts the albedo and irradiance back from the colourspace they were sent to ComfyUI in, to your working space. Normals and depth are data and are never converted. When on, the sRGB option on the Output tab is ignored." +STARTLINE}
+ df_ocio_on true
+ addUserKnob {41 in_colorspace l "from (as sent to ComfyUI)" T OCIO_albedo.in_colorspace}
+ addUserKnob {41 out_colorspace l "to (working space)" T OCIO_albedo.out_colorspace}
+ addUserKnob {26 df_div_normals l "Normals"}
+ addUserKnob {6 df_normals01 l "normals in 0-1 range" t "On for normal maps stored as colours (0.5 = zero). Off for signed -1..1 normals." +STARTLINE}
+ df_normals01 true
+ addUserKnob {6 df_flip_x l "flip X" t "Tick if light from the left lands on the right of the subject." +STARTLINE}
+ addUserKnob {6 df_flip_y l "flip Y" t "Tick if light from above lands underneath." -STARTLINE}
+ addUserKnob {6 df_flip_z l "flip Z" -STARTLINE}
+ addUserKnob {26 df_div_depth l "Depth"}
+ addUserKnob {6 df_near_white l "depth: near is white" t "On for passes where closer is brighter, such as Depth Anything. Off for passes where closer is darker." +STARTLINE}
+ df_near_white true
+ addUserKnob {7 df_depth_scale l "depth scale" t "How deep the scene is compared with its height. Raise it if shadows look too short or the relief looks flat." R 0 5}
+ df_depth_scale 1
+ addUserKnob {7 df_subject_depth l "subject depth" t "Distance of the subject from camera, 0 = at camera, 1 = furthest. Moves the head-and-shoulders figure on the canvas and is where directional lights aim." R 0 1}
+ df_subject_depth 0.5
+ addUserKnob {7 df_canvas_near l "canvas near" t "Distance from camera at the bottom edge of the light canvas." R -2 2 +INVISIBLE}
+ addUserKnob {7 df_canvas_far l "canvas far" t "Distance from camera at the top edge of the light canvas." R -2 2 +INVISIBLE}
+ df_canvas_far 1
+ addUserKnob {7 df_canvas_zoom l "canvas zoom" t "Zoom of the light canvas. Below 1 shows space outside the frame, for lights placed off screen. Also on the mouse wheel and the zoom slider under the canvas." R 0.25 4 +INVISIBLE}
+ df_canvas_zoom 1
+ addUserKnob {26 df_div_kernel l "Kernel"}
+ addUserKnob {22 df_reload l "reload kernel from file" t "Loads DFComfyRelight.blink from the install folder, recompiles and relinks every knob. Use after editing the kernel." T "import DF_comfy_relight_ui as _u; _u.reload_kernel(nuke.thisNode())" +STARTLINE}
+ addUserKnob {26 df_footer l "" +STARTLINE T "<br><font color='#888' size='2'>DF_comfy_relight v1.0 &nbsp;&middot;&nbsp; by <b>David Filipe</b> &nbsp;&middot;&nbsp; Electric Theatre Collective</font>"}
+ addUserKnob {20 df_tab_lights l "Lights"}
+ addUserKnob {26 df_lights_note l "" +STARTLINE T "<font color='#999' size='2'>Drag a light to move it &middot; Shift+drag for height &middot; double-click empty space to add &middot; Ctrl+click a light or its number to switch it on or off &middot; every knob below keyframes as normal</font>"}
+ addUserKnob {7 df_weight l "master intensity" t "Multiplies all eight lights and the rim together." R 0 5}
+ df_weight 1
+ addUserKnob {7 df_wrap l "terminator softness" t "Lets light creep past the shadow edge so the falloff into shade is gentler. 0 is a hard lambert edge." R 0 1}
+ df_wrap 0.3
+ addUserKnob {52 df_canvas l "" +STARTLINE T __import__('DF_comfy_relight_ui').LightPanel(nuke.thisNode()) +STARTLINE}
+ addUserKnob {26 l0_title l "" +STARTLINE T "<hr/><b>Light 1</b>"}
+ addUserKnob {6 l0_enable l "enable" +STARTLINE}
+ l0_enable true
+ addUserKnob {12 l0_pos l "position x / height" t "Pixels. X is across the frame, the second value is height."}
+ l0_pos {560 760}
+ addUserKnob {7 l0_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." R 0 1}
+ l0_z 0.2
+ addUserKnob {7 l0_intensity l "intensity" R 0 10}
+ l0_intensity 1
+ addUserKnob {18 l0_color l colour}
+ l0_color {1 0.86 0.68}
+ addUserKnob {7 l0_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." R 0 8}
+ l0_fpow 2
+ addUserKnob {7 l0_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." R 0 3}
+ l0_frad 0.8
+ addUserKnob {6 l0_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE}
+ addUserKnob {26 l1_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 2</b>"}
+ addUserKnob {6 l1_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l1_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l1_pos {1400 600}
+ addUserKnob {7 l1_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l1_z 0.25
+ addUserKnob {7 l1_intensity l "intensity" +HIDDEN R 0 10}
+ l1_intensity 1
+ addUserKnob {18 l1_color l colour +HIDDEN}
+ l1_color {0.62 0.78 1}
+ addUserKnob {7 l1_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l1_fpow 2
+ addUserKnob {7 l1_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l1_frad 0.8
+ addUserKnob {6 l1_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {26 l2_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 3</b>"}
+ addUserKnob {6 l2_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l2_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l2_pos {960 540}
+ addUserKnob {7 l2_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l2_z 0.2
+ addUserKnob {7 l2_intensity l "intensity" +HIDDEN R 0 10}
+ l2_intensity 1
+ addUserKnob {18 l2_color l colour +HIDDEN}
+ l2_color {1 1 1}
+ addUserKnob {7 l2_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l2_fpow 2
+ addUserKnob {7 l2_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l2_frad 0.8
+ addUserKnob {6 l2_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {26 l3_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 4</b>"}
+ addUserKnob {6 l3_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l3_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l3_pos {960 540}
+ addUserKnob {7 l3_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l3_z 0.2
+ addUserKnob {7 l3_intensity l "intensity" +HIDDEN R 0 10}
+ l3_intensity 1
+ addUserKnob {18 l3_color l colour +HIDDEN}
+ l3_color {1 1 1}
+ addUserKnob {7 l3_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l3_fpow 2
+ addUserKnob {7 l3_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l3_frad 0.8
+ addUserKnob {6 l3_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {26 l4_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 5</b>"}
+ addUserKnob {6 l4_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l4_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l4_pos {960 540}
+ addUserKnob {7 l4_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l4_z 0.2
+ addUserKnob {7 l4_intensity l "intensity" +HIDDEN R 0 10}
+ l4_intensity 1
+ addUserKnob {18 l4_color l colour +HIDDEN}
+ l4_color {1 1 1}
+ addUserKnob {7 l4_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l4_fpow 2
+ addUserKnob {7 l4_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l4_frad 0.8
+ addUserKnob {6 l4_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {26 l5_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 6</b>"}
+ addUserKnob {6 l5_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l5_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l5_pos {960 540}
+ addUserKnob {7 l5_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l5_z 0.2
+ addUserKnob {7 l5_intensity l "intensity" +HIDDEN R 0 10}
+ l5_intensity 1
+ addUserKnob {18 l5_color l colour +HIDDEN}
+ l5_color {1 1 1}
+ addUserKnob {7 l5_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l5_fpow 2
+ addUserKnob {7 l5_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l5_frad 0.8
+ addUserKnob {6 l5_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {26 l6_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 7</b>"}
+ addUserKnob {6 l6_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l6_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l6_pos {960 540}
+ addUserKnob {7 l6_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l6_z 0.2
+ addUserKnob {7 l6_intensity l "intensity" +HIDDEN R 0 10}
+ l6_intensity 1
+ addUserKnob {18 l6_color l colour +HIDDEN}
+ l6_color {1 1 1}
+ addUserKnob {7 l6_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l6_fpow 2
+ addUserKnob {7 l6_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l6_frad 0.8
+ addUserKnob {6 l6_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {26 l7_title l "" +STARTLINE +HIDDEN T "<hr/><b>Light 8</b>"}
+ addUserKnob {6 l7_enable l "enable" +STARTLINE +HIDDEN}
+ addUserKnob {12 l7_pos l "position x / height" +HIDDEN t "Pixels. X is across the frame, the second value is height."}
+ l7_pos {960 540}
+ addUserKnob {7 l7_z l "distance from camera" t "0 = at camera, larger = further. Smaller than the subject depth puts the light in front of the subject." +HIDDEN R 0 1}
+ l7_z 0.2
+ addUserKnob {7 l7_intensity l "intensity" +HIDDEN R 0 10}
+ l7_intensity 1
+ addUserKnob {18 l7_color l colour +HIDDEN}
+ l7_color {1 1 1}
+ addUserKnob {7 l7_fpow l "falloff power" t "How fast the light dies with distance. 2 is physical." +HIDDEN R 0 8}
+ l7_fpow 2
+ addUserKnob {7 l7_frad l "falloff radius" t "Distance, in image heights, at which the light is at half strength. 0 switches to a raw power law with no soft start." +HIDDEN R 0 3}
+ l7_frad 0.8
+ addUserKnob {6 l7_directional l "directional" t "One constant direction for the whole frame, like a sun, aimed at the subject. Keeps fine normal detail even." +STARTLINE +HIDDEN}
+ addUserKnob {20 df_tab_shadows l "Shadows"}
+ addUserKnob {26 df_shadow_note l "" +STARTLINE T "<font color='#999' size='2'>Each light marches through the depth pass toward itself and is blocked by whatever sits in front.</font>"}
+ addUserKnob {6 df_occ_enable l "enable shadows" +STARTLINE}
+ df_occ_enable true
+ addUserKnob {3 df_occ_steps l "steps" t "Samples per light per pixel. More is cleaner and slower."}
+ df_occ_steps 64
+ addUserKnob {7 df_occ_strength l "strength" R 0 1}
+ df_occ_strength 1
+ addUserKnob {7 df_occ_softness l "softness" t "Depth distance over which a shadow fades in. Larger is softer and hides depth noise." R 0 0.3}
+ df_occ_softness 0.03
+ addUserKnob {7 df_occ_reach l "reach (pixels)" t "How far across the frame a shadow can be cast." R 0 2000}
+ df_occ_reach 400
+ addUserKnob {7 df_occ_bias l "bias" t "Raise to remove speckled self-shadowing." R 0 0.1}
+ df_occ_bias 0.005
+ addUserKnob {20 df_tab_rim l "Rim"}
+ addUserKnob {26 df_rim_note l "" +STARTLINE T "<font color='#999' size='2'>Edge light using light 1 for its colour and side. Light 1 must be enabled.</font>"}
+ addUserKnob {6 df_rim_enable l "enable rim" +STARTLINE}
+ addUserKnob {7 df_rim_power l "rim tightness" t "Low spreads across curves, high hugs the outline." R 0.1 10}
+ df_rim_power 3
+ addUserKnob {7 df_rim_int l "rim intensity" R 0 10}
+ df_rim_int 1
+ addUserKnob {6 df_hdri_on l "use HDRI in combined output" t "Untick to take the HDRI out of the Combined result without unplugging it. The HDRI diffuse, HDRI reflect and Fisheye views still show it so you can keep checking it." +STARTLINE +INVISIBLE}
+ addUserKnob {6 df_diff_enable l "enable diffuse" +STARTLINE +INVISIBLE}
+ addUserKnob {6 df_refl_enable l "enable reflect" -STARTLINE +INVISIBLE}
+ addUserKnob {7 df_hdri_rot_y l "rotate y" R -180 180 +INVISIBLE}
+ addUserKnob {7 df_hdri_rot_x l "rotate x" R -90 90 +INVISIBLE}
+ addUserKnob {7 df_hdri_rot_z l "rotate z" R -90 90 +INVISIBLE}
+ addUserKnob {7 df_hdri_width l "width" t "Dome size across, in image heights." R 0.6 5 +INVISIBLE}
+ df_hdri_width 1
+ addUserKnob {7 df_hdri_depth l "depth" R 0.6 5 +INVISIBLE}
+ df_hdri_depth 1
+ addUserKnob {7 df_hdri_height l "height" R 0.6 5 +INVISIBLE}
+ df_hdri_height 1
+ addUserKnob {6 df_hdri_flat l "flat floor" t "Projects the lower half of the HDRI onto a floor plane, for interiors and close environments." +STARTLINE +INVISIBLE}
+ addUserKnob {7 df_hdri_floor l "floor height" t "0 puts the floor at the bottom edge of the frame." R -1 0.4 +INVISIBLE}
+ addUserKnob {7 df_diff_int l "diffuse intensity" R 0 10 +INVISIBLE}
+ df_diff_int 1
+ addUserKnob {7 df_diff_soft l "softness" t "Flattens how tightly the fill follows the surface." R 0 1 +INVISIBLE}
+ addUserKnob {7 df_ambient l "ambient" R 0 1 +INVISIBLE}
+ addUserKnob {7 df_refl_int l "reflect intensity" R 0 10 +INVISIBLE}
+ df_refl_int 1
+ addUserKnob {7 df_refl_gain l "normal gain" t "Below 1 calms the reflection across wrinkles. 1 is a true mirror." R 0 2 +INVISIBLE}
+ df_refl_gain 1
+ addUserKnob {6 df_refl_flip_x l "flip X" +STARTLINE +INVISIBLE}
+ addUserKnob {6 df_refl_flip_z l "flip Z" -STARTLINE +INVISIBLE}
+ addUserKnob {6 df_refl_flip_v l "flip V" -STARTLINE +INVISIBLE}
+ addUserKnob {20 df_tab_output l "Output"}
+ addUserKnob {4 df_output l "output" t "Relit needs an albedo pass, from the pack input or the albedo input." M {Combined Lights Shadows Rim "Normals check" "Relit (albedo x light)"}}
+ addUserKnob {6 df_use_mask l "use matte" t "Multiplies the result by the matte: the alpha of the mask input, or the alpha of the pack input if no mask is connected." +STARTLINE}
+ addUserKnob {26 df_div_relit l "Relit output"}
+ addUserKnob {6 df_albedo_display l "albedo / irradiance are display-referred" t "Only used when the OCIO conversion on the Setup tab is off. On for passes straight out of the model, which are sRGB-like: they are linearised before the multiply. Off if you have already converted them to linear." +STARTLINE}
+ df_albedo_display true
+ addUserKnob {7 df_orig_light l "keep original lighting" t "Relit output only. Adds this much of the irradiance pass, the lighting that was in the plate, back under your new lights." R 0 1}
+}
+ Input {
+  inputs 0
+  name pack
+  xpos 700
+  ypos -200
+ }
+ TimeOffset {
+  time_offset {{parent.df_first_frame-1}}
+  time ""
+  name TO_pack
+  xpos 700
+  ypos -170
+ }
+set Npack [stack 0]
+ Constant {
+  inputs 0
+  channels rgba
+  name Fallback_irradiance
+  xpos 590
+  ypos -120
+ }
+push $Npack
+ Crop {
+  box {{{input.width/2}} 0 {{input.width}} {{input.height/2}}}
+  reformat true
+  name Tile_irradiance
+  xpos 570
+  ypos -60
+ }
+ Input {
+  inputs 0
+  name irradiance
+  xpos 550
+  ypos 0
+  number 5
+ }
+ TimeOffset {
+  time_offset {{parent.df_first_frame-1}}
+  time ""
+  name TO_irradiance
+  xpos 550
+  ypos 30
+ }
+ Switch {
+  inputs 3
+  which {{"\[exists parent.input5] ? 0 : (\[exists parent.input0] ? 1 : 2)"}}
+  name Safe_irradiance
+  xpos 550
+  ypos 60
+ }
+ OCIOColorSpace {
+  in_colorspace out_rec709
+  out_colorspace "ACES - ACEScg"
+  disable {{!parent.df_ocio_on}}
+  name OCIO_irradiance
+  xpos 550
+  ypos 90
+ }
+ Constant {
+  inputs 0
+  channels rgba
+  name Fallback_albedo
+  xpos 480
+  ypos -120
+ }
+push $Npack
+ Crop {
+  box {0 0 {{input.width/2}} {{input.height/2}}}
+  reformat true
+  name Tile_albedo
+  xpos 460
+  ypos -60
+ }
+ Input {
+  inputs 0
+  name albedo
+  xpos 440
+  ypos 0
+  number 4
+ }
+ TimeOffset {
+  time_offset {{parent.df_first_frame-1}}
+  time ""
+  name TO_albedo
+  xpos 440
+  ypos 30
+ }
+ Switch {
+  inputs 3
+  which {{"\[exists parent.input4] ? 0 : (\[exists parent.input0] ? 1 : 2)"}}
+  name Safe_albedo
+  xpos 440
+  ypos 60
+ }
+ OCIOColorSpace {
+  in_colorspace out_rec709
+  out_colorspace "ACES - ACEScg"
+  disable {{!parent.df_ocio_on}}
+  name OCIO_albedo
+  xpos 440
+  ypos 90
+ }
+ Constant {
+  inputs 0
+  channels rgba
+  color 1
+  name Fallback_mask
+  xpos 370
+  ypos -120
+ }
+push $Npack
+ Crop {
+  box {0 {{input.height/2}} {{input.width/2}} {{input.height}}}
+  reformat true
+  name Tile_mask
+  xpos 350
+  ypos -60
+ }
+ Input {
+  inputs 0
+  name mask
+  xpos 330
+  ypos 0
+  number 3
+ }
+ TimeOffset {
+  time_offset {{parent.df_first_frame-1}}
+  time ""
+  name TO_mask
+  xpos 330
+  ypos 30
+ }
+ Switch {
+  inputs 3
+  which {{"\[exists parent.input3] ? 0 : (\[exists parent.input0] ? 1 : 2)"}}
+  name Safe_mask
+  xpos 330
+  ypos 60
+ }
+ Constant {
+  inputs 0
+  channels rgba
+  name Fallback_hdri
+  xpos 220
+  ypos 60
+ }
+ Constant {
+  inputs 0
+  channels rgba
+  name Fallback_depth
+  xpos 150
+  ypos -120
+ }
+push $Npack
+ Crop {
+  box {{{input.width/2}} {{input.height/2}} {{input.width}} {{input.height}}}
+  reformat true
+  name Tile_depth
+  xpos 130
+  ypos -60
+ }
+ Input {
+  inputs 0
+  name depth
+  xpos 110
+  ypos 0
+  number 2
+ }
+ TimeOffset {
+  time_offset {{parent.df_first_frame-1}}
+  time ""
+  name TO_depth
+  xpos 110
+  ypos 30
+ }
+ Switch {
+  inputs 3
+  which {{"\[exists parent.input2] ? 0 : (\[exists parent.input0] ? 1 : 2)"}}
+  name Safe_depth
+  xpos 110
+  ypos 60
+ }
+ Constant {
+  inputs 0
+  channels rgba
+  name Fallback_normals
+  xpos 40
+  ypos -120
+ }
+push $Npack
+ Crop {
+  box {0 {{input.height/2}} {{input.width/2}} {{input.height}}}
+  reformat true
+  name Tile_normals
+  xpos 20
+  ypos -60
+ }
+ Input {
+  inputs 0
+  name normals
+  xpos 0
+  ypos 0
+  number 1
+ }
+ TimeOffset {
+  time_offset {{parent.df_first_frame-1}}
+  time ""
+  name TO_normals
+  xpos 0
+  ypos 30
+ }
+ Switch {
+  inputs 3
+  which {{"\[exists parent.input1] ? 0 : (\[exists parent.input0] ? 1 : 2)"}}
+  name Safe_normals
+  xpos 0
+  ypos 60
+ }
+ BlinkScript {
+  inputs 6
+  recompileCount 1
+  ProgramGroup 1
+  kernelSource "// DFComfyRelight.blink  -  kernel for the DF_comfy_relight gizmo\n// David Filipe / Electric Theatre Collective\n// Normals + depth relighting: 8 point/directional lights with screen-space\n// shadows, a rim light, and lat-long HDRI diffuse + reflection.\n//\n// Conventions:\n//   * Scene space comes from the image: X,Y = pixel offset from the image\n//     centre divided by image HEIGHT (Y spans -0.5..0.5). Z points at the\n//     camera and equals -(scene depth).\n//   * Scene depth: 0 = at camera, larger = further away. It is the depth pass\n//     times depthScale, or (1 - pass) * depthScale when invertDepth is on\n//     (for near-is-white passes such as Depth Anything).\n//   * Light position is in pixels. Light Z and subjectDepth are scene depths.\n//   * Normals: camera space, +X screen right, +Y up, +Z toward camera.\n//   * HDRI: lat-long, image centre = straight ahead of the camera.\n//   * Albedo / irradiance: only used by output mode 8 (Relit).\n\nkernel DFComfyRelight : ImageComputationKernel<ePixelWise>\n\{\n  Image<eRead, eAccessRandom, eEdgeClamped> normals;\n  Image<eRead, eAccessRandom, eEdgeClamped> depth_in;\n  Image<eRead, eAccessRandom, eEdgeClamped> hdri;\n  Image<eRead, eAccessPoint, eEdgeClamped> mask;\n  Image<eRead, eAccessPoint, eEdgeClamped> albedo;\n  Image<eRead, eAccessPoint, eEdgeClamped> irradiance;\n  Image<eWrite> dst;\n\n  param:\n    bool l0Enable;\n    float2 l0Pos;\n    float l0Z;\n    float l0Int;\n    float l0FPow;\n    float l0FRad;\n    float l0R;\n    float l0G;\n    float l0B;\n    bool l0Dir;\n    bool l1Enable;\n    float2 l1Pos;\n    float l1Z;\n    float l1Int;\n    float l1FPow;\n    float l1FRad;\n    float l1R;\n    float l1G;\n    float l1B;\n    bool l1Dir;\n    bool l2Enable;\n    float2 l2Pos;\n    float l2Z;\n    float l2Int;\n    float l2FPow;\n    float l2FRad;\n    float l2R;\n    float l2G;\n    float l2B;\n    bool l2Dir;\n    bool l3Enable;\n    float2 l3Pos;\n    float l3Z;\n    float l3Int;\n    float l3FPow;\n    float l3FRad;\n    float l3R;\n    float l3G;\n    float l3B;\n    bool l3Dir;\n    bool l4Enable;\n    float2 l4Pos;\n    float l4Z;\n    float l4Int;\n    float l4FPow;\n    float l4FRad;\n    float l4R;\n    float l4G;\n    float l4B;\n    bool l4Dir;\n    bool l5Enable;\n    float2 l5Pos;\n    float l5Z;\n    float l5Int;\n    float l5FPow;\n    float l5FRad;\n    float l5R;\n    float l5G;\n    float l5B;\n    bool l5Dir;\n    bool l6Enable;\n    float2 l6Pos;\n    float l6Z;\n    float l6Int;\n    float l6FPow;\n    float l6FRad;\n    float l6R;\n    float l6G;\n    float l6B;\n    bool l6Dir;\n    bool l7Enable;\n    float2 l7Pos;\n    float l7Z;\n    float l7Int;\n    float l7FPow;\n    float l7FRad;\n    float l7R;\n    float l7G;\n    float l7B;\n    bool l7Dir;\n    float hdriYaw;\n    float hdriPitch;\n    float hdriRoll;\n    float hdriWidth;\n    float hdriDepth;\n    float hdriHeight;\n    float hdriFloor;\n    bool hdriFlat;\n    bool reflEnable;\n    float reflInt;\n    float reflGain;\n    bool reflFlipX;\n    bool reflFlipZ;\n    bool reflFlipV;\n    bool diffEnable;\n    float diffInt;\n    float diffSoft;\n    float pointWeight;\n    float ambient;\n    float wrap;\n    bool normals01;\n    bool flipNX;\n    bool flipNY;\n    bool flipNZ;\n    bool invertDepth;\n    float depthScale;\n    bool occEnable;\n    int occSteps;\n    float occBias;\n    float occStrength;\n    float occSoftness;\n    float occMaxDist;\n    bool rimEnable;\n    float rimPower;\n    float rimInt;\n    int outputMode;\n    bool useMask;\n    bool hdriOn;\n    bool albedoDisplay;\n    float origLight;\n    float subjectDepth;\n\n  local:\n    float imgH;\n    float cx;\n    float cy;\n    float bx1;\n    float by1;\n    float bx2;\n    float by2;\n    int envX0;\n    int envY0;\n    int envW;\n    int envH;\n    float sYaw;\n    float cYaw;\n    float sPit;\n    float cPit;\n    float sRol;\n    float cRol;\n\n  void define() \{\n    defineParam(l0Enable, \"l0Enable\", true);\n    defineParam(l0Pos, \"l0Pos\", float2(960.0f, 540.0f));\n    defineParam(l0Z, \"l0Z\", 0.2f);\n    defineParam(l0Int, \"l0Int\", 1.0f);\n    defineParam(l0FPow, \"l0FPow\", 2.0f);\n    defineParam(l0FRad, \"l0FRad\", 0.0f);\n    defineParam(l0R, \"l0R\", 1.0f);\n    defineParam(l0G, \"l0G\", 1.0f);\n    defineParam(l0B, \"l0B\", 1.0f);\n    defineParam(l0Dir, \"l0Dir\", false);\n    defineParam(l1Enable, \"l1Enable\", false);\n    defineParam(l1Pos, \"l1Pos\", float2(960.0f, 540.0f));\n    defineParam(l1Z, \"l1Z\", 0.2f);\n    defineParam(l1Int, \"l1Int\", 1.0f);\n    defineParam(l1FPow, \"l1FPow\", 2.0f);\n    defineParam(l1FRad, \"l1FRad\", 0.0f);\n    defineParam(l1R, \"l1R\", 1.0f);\n    defineParam(l1G, \"l1G\", 1.0f);\n    defineParam(l1B, \"l1B\", 1.0f);\n    defineParam(l1Dir, \"l1Dir\", false);\n    defineParam(l2Enable, \"l2Enable\", false);\n    defineParam(l2Pos, \"l2Pos\", float2(960.0f, 540.0f));\n    defineParam(l2Z, \"l2Z\", 0.2f);\n    defineParam(l2Int, \"l2Int\", 1.0f);\n    defineParam(l2FPow, \"l2FPow\", 2.0f);\n    defineParam(l2FRad, \"l2FRad\", 0.0f);\n    defineParam(l2R, \"l2R\", 1.0f);\n    defineParam(l2G, \"l2G\", 1.0f);\n    defineParam(l2B, \"l2B\", 1.0f);\n    defineParam(l2Dir, \"l2Dir\", false);\n    defineParam(l3Enable, \"l3Enable\", false);\n    defineParam(l3Pos, \"l3Pos\", float2(960.0f, 540.0f));\n    defineParam(l3Z, \"l3Z\", 0.2f);\n    defineParam(l3Int, \"l3Int\", 1.0f);\n    defineParam(l3FPow, \"l3FPow\", 2.0f);\n    defineParam(l3FRad, \"l3FRad\", 0.0f);\n    defineParam(l3R, \"l3R\", 1.0f);\n    defineParam(l3G, \"l3G\", 1.0f);\n    defineParam(l3B, \"l3B\", 1.0f);\n    defineParam(l3Dir, \"l3Dir\", false);\n    defineParam(l4Enable, \"l4Enable\", false);\n    defineParam(l4Pos, \"l4Pos\", float2(960.0f, 540.0f));\n    defineParam(l4Z, \"l4Z\", 0.2f);\n    defineParam(l4Int, \"l4Int\", 1.0f);\n    defineParam(l4FPow, \"l4FPow\", 2.0f);\n    defineParam(l4FRad, \"l4FRad\", 0.0f);\n    defineParam(l4R, \"l4R\", 1.0f);\n    defineParam(l4G, \"l4G\", 1.0f);\n    defineParam(l4B, \"l4B\", 1.0f);\n    defineParam(l4Dir, \"l4Dir\", false);\n    defineParam(l5Enable, \"l5Enable\", false);\n    defineParam(l5Pos, \"l5Pos\", float2(960.0f, 540.0f));\n    defineParam(l5Z, \"l5Z\", 0.2f);\n    defineParam(l5Int, \"l5Int\", 1.0f);\n    defineParam(l5FPow, \"l5FPow\", 2.0f);\n    defineParam(l5FRad, \"l5FRad\", 0.0f);\n    defineParam(l5R, \"l5R\", 1.0f);\n    defineParam(l5G, \"l5G\", 1.0f);\n    defineParam(l5B, \"l5B\", 1.0f);\n    defineParam(l5Dir, \"l5Dir\", false);\n    defineParam(l6Enable, \"l6Enable\", false);\n    defineParam(l6Pos, \"l6Pos\", float2(960.0f, 540.0f));\n    defineParam(l6Z, \"l6Z\", 0.2f);\n    defineParam(l6Int, \"l6Int\", 1.0f);\n    defineParam(l6FPow, \"l6FPow\", 2.0f);\n    defineParam(l6FRad, \"l6FRad\", 0.0f);\n    defineParam(l6R, \"l6R\", 1.0f);\n    defineParam(l6G, \"l6G\", 1.0f);\n    defineParam(l6B, \"l6B\", 1.0f);\n    defineParam(l6Dir, \"l6Dir\", false);\n    defineParam(l7Enable, \"l7Enable\", false);\n    defineParam(l7Pos, \"l7Pos\", float2(960.0f, 540.0f));\n    defineParam(l7Z, \"l7Z\", 0.2f);\n    defineParam(l7Int, \"l7Int\", 1.0f);\n    defineParam(l7FPow, \"l7FPow\", 2.0f);\n    defineParam(l7FRad, \"l7FRad\", 0.0f);\n    defineParam(l7R, \"l7R\", 1.0f);\n    defineParam(l7G, \"l7G\", 1.0f);\n    defineParam(l7B, \"l7B\", 1.0f);\n    defineParam(l7Dir, \"l7Dir\", false);\n    defineParam(hdriYaw, \"hdriYaw\", 0.0f);\n    defineParam(hdriPitch, \"hdriPitch\", 0.0f);\n    defineParam(hdriRoll, \"hdriRoll\", 0.0f);\n    defineParam(hdriWidth, \"hdriWidth\", 1.0f);\n    defineParam(hdriDepth, \"hdriDepth\", 1.0f);\n    defineParam(hdriHeight, \"hdriHeight\", 1.0f);\n    defineParam(hdriFloor, \"hdriFloor\", 0.0f);\n    defineParam(hdriFlat, \"hdriFlat\", false);\n    defineParam(reflEnable, \"reflEnable\", false);\n    defineParam(reflInt, \"reflInt\", 1.0f);\n    defineParam(reflGain, \"reflGain\", 1.0f);\n    defineParam(reflFlipX, \"reflFlipX\", false);\n    defineParam(reflFlipZ, \"reflFlipZ\", false);\n    defineParam(reflFlipV, \"reflFlipV\", false);\n    defineParam(diffEnable, \"diffEnable\", true);\n    defineParam(diffInt, \"diffInt\", 1.0f);\n    defineParam(diffSoft, \"diffSoft\", 0.0f);\n    defineParam(pointWeight, \"pointWeight\", 1.0f);\n    defineParam(ambient, \"ambient\", 0.0f);\n    defineParam(wrap, \"wrap\", 0.0f);\n    defineParam(normals01, \"normals01\", true);\n    defineParam(flipNX, \"flipNX\", false);\n    defineParam(flipNY, \"flipNY\", false);\n    defineParam(flipNZ, \"flipNZ\", false);\n    defineParam(invertDepth, \"invertDepth\", false);\n    defineParam(depthScale, \"depthScale\", 1.0f);\n    defineParam(occEnable, \"occEnable\", true);\n    defineParam(occSteps, \"occSteps\", 32);\n    defineParam(occBias, \"occBias\", 0.01f);\n    defineParam(occStrength, \"occStrength\", 1.0f);\n    defineParam(occSoftness, \"occSoftness\", 0.05f);\n    defineParam(occMaxDist, \"occMaxDist\", 200.0f);\n    defineParam(rimEnable, \"rimEnable\", false);\n    defineParam(rimPower, \"rimPower\", 3.0f);\n    defineParam(rimInt, \"rimInt\", 1.0f);\n    defineParam(outputMode, \"outputMode\", 0);\n    defineParam(useMask, \"useMask\", false);\n    defineParam(hdriOn, \"hdriOn\", true);\n    defineParam(albedoDisplay, \"albedoDisplay\", true);\n    defineParam(origLight, \"origLight\", 0.0f);\n    defineParam(subjectDepth, \"subjectDepth\", 0.5f);\n  \}\n\n  void init() \{\n    bx1 = float(normals.bounds.x1);\n    by1 = float(normals.bounds.y1);\n    bx2 = float(normals.bounds.x2);\n    by2 = float(normals.bounds.y2);\n    imgH = max(by2 - by1, 1.0f);\n    cx = 0.5f * (bx1 + bx2);\n    cy = 0.5f * (by1 + by2);\n    envX0 = hdri.bounds.x1;\n    envY0 = hdri.bounds.y1;\n    envW = hdri.bounds.x2 - hdri.bounds.x1;\n    envH = hdri.bounds.y2 - hdri.bounds.y1;\n    if (envW < 1) envW = 1;\n    if (envH < 1) envH = 1;\n    float d2r = 0.017453293f;\n    sYaw = sin(hdriYaw * d2r);\n    cYaw = cos(hdriYaw * d2r);\n    sPit = sin(hdriPitch * d2r);\n    cPit = cos(hdriPitch * d2r);\n    sRol = sin(hdriRoll * d2r);\n    cRol = cos(hdriRoll * d2r);\n  \}\n\n  // ---- depth -------------------------------------------------------------\n\n  // Depth-pass value -> scene depth (0 = camera, larger = further).\n  float toSceneDepth(float d) \{\n    float v = d;\n    if (invertDepth) v = 1.0f - v;\n    return v * depthScale;\n  \}\n\n  float depthAt(int x, int y) \{\n    return toSceneDepth(depth_in(x, y, 0));\n  \}\n\n  float depthBilinear(float x, float y) \{\n    float fx = floor(x);\n    float fy = floor(y);\n    int x0 = int(fx);\n    int y0 = int(fy);\n    float tx = x - fx;\n    float ty = y - fy;\n    float a = depthAt(x0, y0);\n    float b = depthAt(x0 + 1, y0);\n    float c = depthAt(x0, y0 + 1);\n    float d = depthAt(x0 + 1, y0 + 1);\n    return (a * (1.0f - tx) + b * tx) * (1.0f - ty) + (c * (1.0f - tx) + d * tx) * ty;\n  \}\n\n  // ---- environment -------------------------------------------------------\n\n  float3 envTexel(int x, int y) \{\n    int xx = x;\n    if (xx < 0) xx = xx + envW;\n    if (xx >= envW) xx = xx - envW;\n    int yy = y;\n    if (yy < 0) yy = 0;\n    if (yy > envH - 1) yy = envH - 1;\n    return float3(hdri(envX0 + xx, envY0 + yy, 0),\n                  hdri(envX0 + xx, envY0 + yy, 1),\n                  hdri(envX0 + xx, envY0 + yy, 2));\n  \}\n\n  // Lat-long lookup with yaw / pitch / roll applied to the direction.\n  float3 envSample(float3 dir) \{\n    float x1 = dir.x * cYaw + dir.z * sYaw;\n    float z1 = dir.z * cYaw - dir.x * sYaw;\n    float y1 = dir.y;\n    float y2 = y1 * cPit - z1 * sPit;\n    float z2 = y1 * sPit + z1 * cPit;\n    float x3 = x1 * cRol - y2 * sRol;\n    float y3 = x1 * sRol + y2 * cRol;\n    float u = atan2(x3, -z2) * 0.15915494f + 0.5f;\n    float v = asin(clamp(y3, -1.0f, 1.0f)) * 0.31830989f + 0.5f;\n    float px = u * float(envW) - 0.5f;\n    float py = v * float(envH) - 0.5f;\n    float fx = floor(px);\n    float fy = floor(py);\n    int x0 = int(fx);\n    int y0 = int(fy);\n    float tx = px - fx;\n    float ty = py - fy;\n    float3 a = envTexel(x0, y0);\n    float3 b = envTexel(x0 + 1, y0);\n    float3 c = envTexel(x0, y0 + 1);\n    float3 d = envTexel(x0 + 1, y0 + 1);\n    return (a * (1.0f - tx) + b * tx) * (1.0f - ty) + (c * (1.0f - tx) + d * tx) * ty;\n  \}\n\n  // Parallax-corrected lookup direction. The HDRI is treated as painted on an\n  // ellipsoid (width / height / depth, in image heights) around the image\n  // centre, with an optional flat floor. A ray leaving surface point `o` in\n  // direction `d` is intersected with that shape; the hit point decides which\n  // part of the HDRI is seen. With all three radii at 1 and no floor this is\n  // close to a plain direction lookup.\n  float3 domeDir(float3 o, float3 d) \{\n    float3 r = float3(max(hdriWidth, 0.001f), max(hdriHeight, 0.001f), max(hdriDepth, 0.001f));\n    float3 os = float3(o.x / r.x, o.y / r.y, o.z / r.z);\n    float3 ds = float3(d.x / r.x, d.y / r.y, d.z / r.z);\n    float qa = dot(ds, ds);\n    float qb = dot(os, ds);\n    float qc = dot(os, os) - 1.0f;\n    if (qc >= 0.0f || qa < 0.0000001f) return d;      // surface point outside the dome\n    float t = (sqrt(qb * qb - qa * qc) - qb) / qa;\n    if (hdriFlat) \{\n      float floorY = hdriFloor - 0.5f;                 // 0 = bottom edge of frame\n      if (d.y < -0.0001f && floorY < o.y) \{\n        float tf = (floorY - o.y) / d.y;\n        if (tf < t) t = tf;\n      \}\n    \}\n    float3 hp = o + d * t;\n    float3 hit = float3(hp.x / r.x, hp.y / r.y, hp.z / r.z);\n    return hit / max(length(hit), 0.000001f);\n  \}\n\n  // ---- lights ------------------------------------------------------------\n\n  float3 lightPos(float2 lp, float lz) \{\n    return float3((lp.x - cx) / imgH, (lp.y - cy) / imgH, -lz * depthScale);\n  \}\n\n  // Returns rgb = this light's contribution, a = its shadow visibility (1 = lit).\n  float4 shadeLight(int slot, bool en, float2 lp, float lz, float inten,\n                    float fpow, float frad, float3 col, bool directional,\n                    float3 P, float3 Nrm) \{\n    if (!en || inten <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);\n\n    float3 Lp = lightPos(lp, lz);\n    float3 toL = Lp - P;\n    float dist = max(length(toL), 0.00001f);\n    float3 L = toL / dist;\n    if (directional) \{\n      // One constant direction for the whole frame: light -> subject centre.\n      float3 c = float3(0.0f, 0.0f, -subjectDepth * depthScale);\n      float3 dv = Lp - c;\n      L = dv / max(length(dv), 0.00001f);\n    \}\n\n    float wr = clamp(wrap, 0.0f, 0.99f);\n    float ndl = max((dot(Nrm, L) + wr) / (1.0f + wr), 0.0f);\n    if (ndl <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);\n\n    // Radius > 0: smooth 1 / (1 + (d/r)^p), half strength at d = r.\n    // Radius = 0: plain power law (inverse-square when power is 2).\n    float att;\n    if (frad > 0.0f) att = 1.0f / (1.0f + pow(dist / frad, fpow));\n    else att = min(1.0f / max(pow(dist, fpow), 0.0001f), 10000.0f);\n\n    float vis = 1.0f;\n    if (occEnable && occStrength > 0.0f) \{\n      float maxLen = occMaxDist / imgH;\n      float len = maxLen;\n      if (!directional && dist < maxLen) len = dist;\n      int n = occSteps;\n      if (n < 1) n = 1;\n      float soft = max(occSoftness, 0.00001f);\n      float occ = 0.0f;\n      for (int i = 1; i <= n; i++) \{\n        float t = len * float(i) / float(n);\n        float3 S = P + L * t;\n        float sx = S.x * imgH + cx;\n        float sy = S.y * imgH + cy;\n        if (sx < bx1 || sx > bx2 - 1.0f || sy < by1 || sy > by2 - 1.0f) break;\n        // > 0 means the ray has passed behind what the depth pass sees there.\n        float behind = -S.z - depthBilinear(sx, sy);\n        float o = clamp((behind - occBias) / soft, 0.0f, 1.0f);\n        o = o * o * (3.0f - 2.0f * o);\n        if (o > occ) occ = o;\n        if (occ >= 1.0f) break;\n      \}\n      vis = 1.0f - clamp(occStrength, 0.0f, 1.0f) * occ;\n    \}\n\n    float k = inten * ndl * att * vis;\n    return float4(col.x * k, col.y * k, col.z * k, vis);\n  \}\n\n  // ---- main --------------------------------------------------------------\n\n  // sRGB display value -> linear\n  float toLinear(float v) \{\n    if (v <= 0.04045f) return max(v, 0.0f) / 12.92f;\n    return pow((v + 0.055f) / 1.055f, 2.4f);\n  \}\n\n  void process(int2 pos) \{\n    // Output mode 6: fisheye chart of the rotated HDRI.\n    // Centre of the disc = what a camera-facing surface is lit by.\n    if (outputMode == 6) \{\n      float ux = (float(pos.x) - cx) / (0.5f * imgH);\n      float uy = (float(pos.y) - cy) / (0.5f * imgH);\n      float rr = sqrt(ux * ux + uy * uy);\n      if (rr > 1.0f) \{\n        dst() = float4(0.0f, 0.0f, 0.0f, 0.0f);\n        return;\n      \}\n      float th = rr * 3.14159265f;\n      float sc = 0.0f;\n      if (rr > 0.00001f) sc = sin(th) / rr;\n      float3 fe = envSample(float3(ux * sc, uy * sc, cos(th)));\n      dst() = float4(fe.x, fe.y, fe.z, 1.0f);\n      return;\n    \}\n\n    float3 nv = float3(normals(pos.x, pos.y, 0), normals(pos.x, pos.y, 1), normals(pos.x, pos.y, 2));\n    if (normals01) nv = nv * 2.0f - float3(1.0f, 1.0f, 1.0f);\n    if (flipNX) nv.x = -nv.x;\n    if (flipNY) nv.y = -nv.y;\n    if (flipNZ) nv.z = -nv.z;\n    float nlen = length(nv);\n    if (nlen < 0.0001f) \{\n      dst() = float4(0.0f, 0.0f, 0.0f, 0.0f);\n      return;\n    \}\n    float3 Nrm = nv / nlen;\n\n    float sd = depthAt(pos.x, pos.y);\n    float3 P = float3((float(pos.x) - cx) / imgH, (float(pos.y) - cy) / imgH, -sd);\n\n    // Point lights\n    float3 pts = float3(0.0f, 0.0f, 0.0f);\n    float visSum = 0.0f;\n    float visCount = 0.0f;\n    float4 s;\n    s = shadeLight(0, l0Enable, l0Pos, l0Z, l0Int, l0FPow, l0FRad, float3(l0R, l0G, l0B), l0Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l0Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(1, l1Enable, l1Pos, l1Z, l1Int, l1FPow, l1FRad, float3(l1R, l1G, l1B), l1Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l1Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(2, l2Enable, l2Pos, l2Z, l2Int, l2FPow, l2FRad, float3(l2R, l2G, l2B), l2Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l2Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(3, l3Enable, l3Pos, l3Z, l3Int, l3FPow, l3FRad, float3(l3R, l3G, l3B), l3Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l3Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(4, l4Enable, l4Pos, l4Z, l4Int, l4FPow, l4FRad, float3(l4R, l4G, l4B), l4Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l4Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(5, l5Enable, l5Pos, l5Z, l5Int, l5FPow, l5FRad, float3(l5R, l5G, l5B), l5Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l5Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(6, l6Enable, l6Pos, l6Z, l6Int, l6FPow, l6FRad, float3(l6R, l6G, l6B), l6Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l6Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n    s = shadeLight(7, l7Enable, l7Pos, l7Z, l7Int, l7FPow, l7FRad, float3(l7R, l7G, l7B), l7Dir, P, Nrm);\n    pts = pts + float3(s.x, s.y, s.z);\n    if (l7Enable) \{ visSum = visSum + s.w; visCount = visCount + 1.0f; \}\n\n    // Rim: fresnel edge term tinted by light 0, fading on the side that faces\n    // away from light 0.\n    float3 rim = float3(0.0f, 0.0f, 0.0f);\n    if (rimEnable && l0Enable) \{\n      float3 toL0 = lightPos(l0Pos, l0Z) - P;\n      float3 L0 = toL0 / max(length(toL0), 0.00001f);\n      float fres = pow(clamp(1.0f - Nrm.z, 0.0f, 1.0f), max(rimPower, 0.01f));\n      float side = clamp(dot(Nrm, L0) * 0.5f + 0.5f, 0.0f, 1.0f);\n      float rk = fres * side * rimInt;\n      rim = float3(l0R * rk, l0G * rk, l0B * rk);\n    \}\n\n    // HDRI. Roughness is whatever blur is applied to the HDRI upstream.\n    float3 o = float3(P.x, P.y, 0.0f);\n    float3 diff = float3(0.0f, 0.0f, 0.0f);\n    if (diffEnable) \{\n      float ds = clamp(diffSoft, 0.0f, 1.0f);\n      float3 dn = Nrm * (1.0f - ds) + float3(0.0f, 0.0f, ds);\n      dn = dn / max(length(dn), 0.00001f);\n      diff = envSample(domeDir(o, dn)) * diffInt + float3(ambient, ambient, ambient);\n    \}\n    float3 refl = float3(0.0f, 0.0f, 0.0f);\n    if (reflEnable) \{\n      float3 ng = float3(Nrm.x * reflGain, Nrm.y * reflGain, Nrm.z);\n      ng = ng / max(length(ng), 0.00001f);\n      // mirror the view vector (0,0,1) about the normal\n      float3 R = float3(2.0f * ng.z * ng.x, 2.0f * ng.z * ng.y, 2.0f * ng.z * ng.z - 1.0f);\n      if (reflFlipX) R.x = -R.x;\n      if (reflFlipV) R.y = -R.y;\n      if (reflFlipZ) R.z = -R.z;\n      refl = envSample(domeDir(o, R)) * reflInt;\n    \}\n\n    float3 pointTotal = (pts + rim) * pointWeight;\n    float occOut = 1.0f;\n    if (visCount > 0.0f) occOut = visSum / visCount;\n\n    float3 res = pointTotal;                                         // 0 combined\n    if (hdriOn) res = res + diff + refl;                             //   HDRI can be switched out of the combined result\n    if (outputMode == 1) res = pointTotal;                           // 1 lights\n    else if (outputMode == 2) res = refl;                            // 2 HDRI reflect\n    else if (outputMode == 3) res = diff;                            // 3 HDRI diffuse\n    else if (outputMode == 4) res = float3(occOut, occOut, occOut);  // 4 shadows\n    else if (outputMode == 5) res = rim * pointWeight;               // 5 rim\n    else if (outputMode == 7) res = Nrm * 0.5f + float3(0.5f, 0.5f, 0.5f); // 7 normals check\n    else if (outputMode == 8) \{                                      // 8 relit: albedo x (new light + some original light)\n      float3 al = float3(albedo(0), albedo(1), albedo(2));\n      float3 ir = float3(irradiance(0), irradiance(1), irradiance(2));\n      if (albedoDisplay) \{\n        al = float3(toLinear(al.x), toLinear(al.y), toLinear(al.z));\n        ir = float3(toLinear(ir.x), toLinear(ir.y), toLinear(ir.z));\n      \}\n      res = float3(al.x * (res.x + ir.x * origLight), al.y * (res.y + ir.y * origLight), al.z * (res.z + ir.z * origLight));\n    \}\n\n    float a = 1.0f;\n    if (useMask) \{\n      a = mask(3);\n      res = res * a;\n    \}\n    if (outputMode == 7) a = sd;                                     // normals check: scene depth in alpha\n    dst() = float4(res.x, res.y, res.z, a);\n  \}\n\};\n"
+  rebuild ""
+  DFComfyRelight_l0Enable {{parent.l0_enable}}
+  DFComfyRelight_l0Pos {{parent.l0_pos.x} {parent.l0_pos.y}}
+  DFComfyRelight_l0Z {{parent.l0_z}}
+  DFComfyRelight_l0Int {{parent.l0_intensity}}
+  DFComfyRelight_l0FPow {{parent.l0_fpow}}
+  DFComfyRelight_l0FRad {{parent.l0_frad}}
+  DFComfyRelight_l0R {{parent.l0_color.r}}
+  DFComfyRelight_l0G {{parent.l0_color.g}}
+  DFComfyRelight_l0B {{parent.l0_color.b}}
+  DFComfyRelight_l0Dir {{parent.l0_directional}}
+  DFComfyRelight_l1Enable {{parent.l1_enable}}
+  DFComfyRelight_l1Pos {{parent.l1_pos.x} {parent.l1_pos.y}}
+  DFComfyRelight_l1Z {{parent.l1_z}}
+  DFComfyRelight_l1Int {{parent.l1_intensity}}
+  DFComfyRelight_l1FPow {{parent.l1_fpow}}
+  DFComfyRelight_l1FRad {{parent.l1_frad}}
+  DFComfyRelight_l1R {{parent.l1_color.r}}
+  DFComfyRelight_l1G {{parent.l1_color.g}}
+  DFComfyRelight_l1B {{parent.l1_color.b}}
+  DFComfyRelight_l1Dir {{parent.l1_directional}}
+  DFComfyRelight_l2Enable {{parent.l2_enable}}
+  DFComfyRelight_l2Pos {{parent.l2_pos.x} {parent.l2_pos.y}}
+  DFComfyRelight_l2Z {{parent.l2_z}}
+  DFComfyRelight_l2Int {{parent.l2_intensity}}
+  DFComfyRelight_l2FPow {{parent.l2_fpow}}
+  DFComfyRelight_l2FRad {{parent.l2_frad}}
+  DFComfyRelight_l2R {{parent.l2_color.r}}
+  DFComfyRelight_l2G {{parent.l2_color.g}}
+  DFComfyRelight_l2B {{parent.l2_color.b}}
+  DFComfyRelight_l2Dir {{parent.l2_directional}}
+  DFComfyRelight_l3Enable {{parent.l3_enable}}
+  DFComfyRelight_l3Pos {{parent.l3_pos.x} {parent.l3_pos.y}}
+  DFComfyRelight_l3Z {{parent.l3_z}}
+  DFComfyRelight_l3Int {{parent.l3_intensity}}
+  DFComfyRelight_l3FPow {{parent.l3_fpow}}
+  DFComfyRelight_l3FRad {{parent.l3_frad}}
+  DFComfyRelight_l3R {{parent.l3_color.r}}
+  DFComfyRelight_l3G {{parent.l3_color.g}}
+  DFComfyRelight_l3B {{parent.l3_color.b}}
+  DFComfyRelight_l3Dir {{parent.l3_directional}}
+  DFComfyRelight_l4Enable {{parent.l4_enable}}
+  DFComfyRelight_l4Pos {{parent.l4_pos.x} {parent.l4_pos.y}}
+  DFComfyRelight_l4Z {{parent.l4_z}}
+  DFComfyRelight_l4Int {{parent.l4_intensity}}
+  DFComfyRelight_l4FPow {{parent.l4_fpow}}
+  DFComfyRelight_l4FRad {{parent.l4_frad}}
+  DFComfyRelight_l4R {{parent.l4_color.r}}
+  DFComfyRelight_l4G {{parent.l4_color.g}}
+  DFComfyRelight_l4B {{parent.l4_color.b}}
+  DFComfyRelight_l4Dir {{parent.l4_directional}}
+  DFComfyRelight_l5Enable {{parent.l5_enable}}
+  DFComfyRelight_l5Pos {{parent.l5_pos.x} {parent.l5_pos.y}}
+  DFComfyRelight_l5Z {{parent.l5_z}}
+  DFComfyRelight_l5Int {{parent.l5_intensity}}
+  DFComfyRelight_l5FPow {{parent.l5_fpow}}
+  DFComfyRelight_l5FRad {{parent.l5_frad}}
+  DFComfyRelight_l5R {{parent.l5_color.r}}
+  DFComfyRelight_l5G {{parent.l5_color.g}}
+  DFComfyRelight_l5B {{parent.l5_color.b}}
+  DFComfyRelight_l5Dir {{parent.l5_directional}}
+  DFComfyRelight_l6Enable {{parent.l6_enable}}
+  DFComfyRelight_l6Pos {{parent.l6_pos.x} {parent.l6_pos.y}}
+  DFComfyRelight_l6Z {{parent.l6_z}}
+  DFComfyRelight_l6Int {{parent.l6_intensity}}
+  DFComfyRelight_l6FPow {{parent.l6_fpow}}
+  DFComfyRelight_l6FRad {{parent.l6_frad}}
+  DFComfyRelight_l6R {{parent.l6_color.r}}
+  DFComfyRelight_l6G {{parent.l6_color.g}}
+  DFComfyRelight_l6B {{parent.l6_color.b}}
+  DFComfyRelight_l6Dir {{parent.l6_directional}}
+  DFComfyRelight_l7Enable {{parent.l7_enable}}
+  DFComfyRelight_l7Pos {{parent.l7_pos.x} {parent.l7_pos.y}}
+  DFComfyRelight_l7Z {{parent.l7_z}}
+  DFComfyRelight_l7Int {{parent.l7_intensity}}
+  DFComfyRelight_l7FPow {{parent.l7_fpow}}
+  DFComfyRelight_l7FRad {{parent.l7_frad}}
+  DFComfyRelight_l7R {{parent.l7_color.r}}
+  DFComfyRelight_l7G {{parent.l7_color.g}}
+  DFComfyRelight_l7B {{parent.l7_color.b}}
+  DFComfyRelight_l7Dir {{parent.l7_directional}}
+  DFComfyRelight_hdriYaw {{parent.df_hdri_rot_y}}
+  DFComfyRelight_hdriPitch {{parent.df_hdri_rot_x}}
+  DFComfyRelight_hdriRoll {{parent.df_hdri_rot_z}}
+  DFComfyRelight_hdriWidth {{parent.df_hdri_width}}
+  DFComfyRelight_hdriDepth {{parent.df_hdri_depth}}
+  DFComfyRelight_hdriHeight {{parent.df_hdri_height}}
+  DFComfyRelight_hdriFloor {{parent.df_hdri_floor}}
+  DFComfyRelight_hdriFlat {{parent.df_hdri_flat}}
+  DFComfyRelight_reflEnable {{parent.df_refl_enable}}
+  DFComfyRelight_reflInt {{parent.df_refl_int}}
+  DFComfyRelight_reflGain {{parent.df_refl_gain}}
+  DFComfyRelight_reflFlipX {{parent.df_refl_flip_x}}
+  DFComfyRelight_reflFlipZ {{parent.df_refl_flip_z}}
+  DFComfyRelight_reflFlipV {{parent.df_refl_flip_v}}
+  DFComfyRelight_diffEnable {{parent.df_diff_enable}}
+  DFComfyRelight_diffInt {{parent.df_diff_int}}
+  DFComfyRelight_diffSoft {{parent.df_diff_soft}}
+  DFComfyRelight_pointWeight {{parent.df_weight}}
+  DFComfyRelight_ambient {{parent.df_ambient}}
+  DFComfyRelight_wrap {{parent.df_wrap}}
+  DFComfyRelight_normals01 {{parent.df_normals01}}
+  DFComfyRelight_flipNX {{parent.df_flip_x}}
+  DFComfyRelight_flipNY {{parent.df_flip_y}}
+  DFComfyRelight_flipNZ {{parent.df_flip_z}}
+  DFComfyRelight_invertDepth {{parent.df_near_white}}
+  DFComfyRelight_depthScale {{parent.df_depth_scale}}
+  DFComfyRelight_occEnable {{parent.df_occ_enable}}
+  DFComfyRelight_occSteps {{parent.df_occ_steps}}
+  DFComfyRelight_occBias {{parent.df_occ_bias}}
+  DFComfyRelight_occStrength {{parent.df_occ_strength}}
+  DFComfyRelight_occSoftness {{parent.df_occ_softness}}
+  DFComfyRelight_occMaxDist {{parent.df_occ_reach}}
+  DFComfyRelight_rimEnable {{parent.df_rim_enable}}
+  DFComfyRelight_rimPower {{parent.df_rim_power}}
+  DFComfyRelight_rimInt {{parent.df_rim_int}}
+  DFComfyRelight_outputMode {{parent.df_output + 2*(parent.df_output>=2) + (parent.df_output>=4)}}
+  DFComfyRelight_useMask {{parent.df_use_mask}}
+  DFComfyRelight_hdriOn {{parent.df_hdri_on}}
+  DFComfyRelight_albedoDisplay {{parent.df_albedo_display*(1-parent.df_ocio_on)}}
+  DFComfyRelight_origLight {{parent.df_orig_light}}
+  DFComfyRelight_subjectDepth {{parent.df_subject_depth}}
+  rebuild_finalise ""
+  name Relight_Kernel
+  xpos 0
+  ypos 120
+ }
+ Output {
+  name Output1
+  xpos 0
+  ypos 220
+ }
+end_group

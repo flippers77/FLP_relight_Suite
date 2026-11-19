@@ -1,0 +1,609 @@
+// Copyright (c) Electric Theatre Collective. Internal use only. See LICENSE.
+// DFComfyRelight.blink  -  kernel for the DF_comfy_relight gizmo
+// David Filipe / Electric Theatre Collective
+// Normals + depth relighting: 8 point/directional lights with screen-space
+// shadows, a rim light, and lat-long HDRI diffuse + reflection.
+//
+// Conventions:
+//   * Scene space comes from the image: X,Y = pixel offset from the image
+//     centre divided by image HEIGHT (Y spans -0.5..0.5). Z points at the
+//     camera and equals -(scene depth).
+//   * Scene depth: 0 = at camera, larger = further away. It is the depth pass
+//     times depthScale, or (1 - pass) * depthScale when invertDepth is on
+//     (for near-is-white passes such as Depth Anything).
+//   * Light position is in pixels. Light Z and subjectDepth are scene depths.
+//   * Normals: camera space, +X screen right, +Y up, +Z toward camera.
+//   * HDRI: lat-long, image centre = straight ahead of the camera.
+//   * Albedo / irradiance: only used by output mode 8 (Relit).
+
+kernel DFComfyRelight : ImageComputationKernel<ePixelWise>
+{
+  Image<eRead, eAccessRandom, eEdgeClamped> normals;
+  Image<eRead, eAccessRandom, eEdgeClamped> depth_in;
+  Image<eRead, eAccessRandom, eEdgeClamped> hdri;
+  Image<eRead, eAccessPoint, eEdgeClamped> mask;
+  Image<eRead, eAccessPoint, eEdgeClamped> albedo;
+  Image<eRead, eAccessPoint, eEdgeClamped> irradiance;
+  Image<eWrite> dst;
+
+  param:
+    bool l0Enable;
+    float2 l0Pos;
+    float l0Z;
+    float l0Int;
+    float l0FPow;
+    float l0FRad;
+    float l0R;
+    float l0G;
+    float l0B;
+    bool l0Dir;
+    bool l1Enable;
+    float2 l1Pos;
+    float l1Z;
+    float l1Int;
+    float l1FPow;
+    float l1FRad;
+    float l1R;
+    float l1G;
+    float l1B;
+    bool l1Dir;
+    bool l2Enable;
+    float2 l2Pos;
+    float l2Z;
+    float l2Int;
+    float l2FPow;
+    float l2FRad;
+    float l2R;
+    float l2G;
+    float l2B;
+    bool l2Dir;
+    bool l3Enable;
+    float2 l3Pos;
+    float l3Z;
+    float l3Int;
+    float l3FPow;
+    float l3FRad;
+    float l3R;
+    float l3G;
+    float l3B;
+    bool l3Dir;
+    bool l4Enable;
+    float2 l4Pos;
+    float l4Z;
+    float l4Int;
+    float l4FPow;
+    float l4FRad;
+    float l4R;
+    float l4G;
+    float l4B;
+    bool l4Dir;
+    bool l5Enable;
+    float2 l5Pos;
+    float l5Z;
+    float l5Int;
+    float l5FPow;
+    float l5FRad;
+    float l5R;
+    float l5G;
+    float l5B;
+    bool l5Dir;
+    bool l6Enable;
+    float2 l6Pos;
+    float l6Z;
+    float l6Int;
+    float l6FPow;
+    float l6FRad;
+    float l6R;
+    float l6G;
+    float l6B;
+    bool l6Dir;
+    bool l7Enable;
+    float2 l7Pos;
+    float l7Z;
+    float l7Int;
+    float l7FPow;
+    float l7FRad;
+    float l7R;
+    float l7G;
+    float l7B;
+    bool l7Dir;
+    float hdriYaw;
+    float hdriPitch;
+    float hdriRoll;
+    float hdriWidth;
+    float hdriDepth;
+    float hdriHeight;
+    float hdriFloor;
+    bool hdriFlat;
+    bool reflEnable;
+    float reflInt;
+    float reflGain;
+    bool reflFlipX;
+    bool reflFlipZ;
+    bool reflFlipV;
+    bool diffEnable;
+    float diffInt;
+    float diffSoft;
+    float pointWeight;
+    float ambient;
+    float wrap;
+    bool normals01;
+    bool flipNX;
+    bool flipNY;
+    bool flipNZ;
+    bool invertDepth;
+    float depthScale;
+    bool occEnable;
+    int occSteps;
+    float occBias;
+    float occStrength;
+    float occSoftness;
+    float occMaxDist;
+    bool rimEnable;
+    float rimPower;
+    float rimInt;
+    int outputMode;
+    bool useMask;
+    bool hdriOn;
+    bool albedoDisplay;
+    float origLight;
+    float subjectDepth;
+
+  local:
+    float imgH;
+    float cx;
+    float cy;
+    float bx1;
+    float by1;
+    float bx2;
+    float by2;
+    int envX0;
+    int envY0;
+    int envW;
+    int envH;
+    float sYaw;
+    float cYaw;
+    float sPit;
+    float cPit;
+    float sRol;
+    float cRol;
+
+  void define() {
+    defineParam(l0Enable, "l0Enable", true);
+    defineParam(l0Pos, "l0Pos", float2(960.0f, 540.0f));
+    defineParam(l0Z, "l0Z", 0.2f);
+    defineParam(l0Int, "l0Int", 1.0f);
+    defineParam(l0FPow, "l0FPow", 2.0f);
+    defineParam(l0FRad, "l0FRad", 0.0f);
+    defineParam(l0R, "l0R", 1.0f);
+    defineParam(l0G, "l0G", 1.0f);
+    defineParam(l0B, "l0B", 1.0f);
+    defineParam(l0Dir, "l0Dir", false);
+    defineParam(l1Enable, "l1Enable", false);
+    defineParam(l1Pos, "l1Pos", float2(960.0f, 540.0f));
+    defineParam(l1Z, "l1Z", 0.2f);
+    defineParam(l1Int, "l1Int", 1.0f);
+    defineParam(l1FPow, "l1FPow", 2.0f);
+    defineParam(l1FRad, "l1FRad", 0.0f);
+    defineParam(l1R, "l1R", 1.0f);
+    defineParam(l1G, "l1G", 1.0f);
+    defineParam(l1B, "l1B", 1.0f);
+    defineParam(l1Dir, "l1Dir", false);
+    defineParam(l2Enable, "l2Enable", false);
+    defineParam(l2Pos, "l2Pos", float2(960.0f, 540.0f));
+    defineParam(l2Z, "l2Z", 0.2f);
+    defineParam(l2Int, "l2Int", 1.0f);
+    defineParam(l2FPow, "l2FPow", 2.0f);
+    defineParam(l2FRad, "l2FRad", 0.0f);
+    defineParam(l2R, "l2R", 1.0f);
+    defineParam(l2G, "l2G", 1.0f);
+    defineParam(l2B, "l2B", 1.0f);
+    defineParam(l2Dir, "l2Dir", false);
+    defineParam(l3Enable, "l3Enable", false);
+    defineParam(l3Pos, "l3Pos", float2(960.0f, 540.0f));
+    defineParam(l3Z, "l3Z", 0.2f);
+    defineParam(l3Int, "l3Int", 1.0f);
+    defineParam(l3FPow, "l3FPow", 2.0f);
+    defineParam(l3FRad, "l3FRad", 0.0f);
+    defineParam(l3R, "l3R", 1.0f);
+    defineParam(l3G, "l3G", 1.0f);
+    defineParam(l3B, "l3B", 1.0f);
+    defineParam(l3Dir, "l3Dir", false);
+    defineParam(l4Enable, "l4Enable", false);
+    defineParam(l4Pos, "l4Pos", float2(960.0f, 540.0f));
+    defineParam(l4Z, "l4Z", 0.2f);
+    defineParam(l4Int, "l4Int", 1.0f);
+    defineParam(l4FPow, "l4FPow", 2.0f);
+    defineParam(l4FRad, "l4FRad", 0.0f);
+    defineParam(l4R, "l4R", 1.0f);
+    defineParam(l4G, "l4G", 1.0f);
+    defineParam(l4B, "l4B", 1.0f);
+    defineParam(l4Dir, "l4Dir", false);
+    defineParam(l5Enable, "l5Enable", false);
+    defineParam(l5Pos, "l5Pos", float2(960.0f, 540.0f));
+    defineParam(l5Z, "l5Z", 0.2f);
+    defineParam(l5Int, "l5Int", 1.0f);
+    defineParam(l5FPow, "l5FPow", 2.0f);
+    defineParam(l5FRad, "l5FRad", 0.0f);
+    defineParam(l5R, "l5R", 1.0f);
+    defineParam(l5G, "l5G", 1.0f);
+    defineParam(l5B, "l5B", 1.0f);
+    defineParam(l5Dir, "l5Dir", false);
+    defineParam(l6Enable, "l6Enable", false);
+    defineParam(l6Pos, "l6Pos", float2(960.0f, 540.0f));
+    defineParam(l6Z, "l6Z", 0.2f);
+    defineParam(l6Int, "l6Int", 1.0f);
+    defineParam(l6FPow, "l6FPow", 2.0f);
+    defineParam(l6FRad, "l6FRad", 0.0f);
+    defineParam(l6R, "l6R", 1.0f);
+    defineParam(l6G, "l6G", 1.0f);
+    defineParam(l6B, "l6B", 1.0f);
+    defineParam(l6Dir, "l6Dir", false);
+    defineParam(l7Enable, "l7Enable", false);
+    defineParam(l7Pos, "l7Pos", float2(960.0f, 540.0f));
+    defineParam(l7Z, "l7Z", 0.2f);
+    defineParam(l7Int, "l7Int", 1.0f);
+    defineParam(l7FPow, "l7FPow", 2.0f);
+    defineParam(l7FRad, "l7FRad", 0.0f);
+    defineParam(l7R, "l7R", 1.0f);
+    defineParam(l7G, "l7G", 1.0f);
+    defineParam(l7B, "l7B", 1.0f);
+    defineParam(l7Dir, "l7Dir", false);
+    defineParam(hdriYaw, "hdriYaw", 0.0f);
+    defineParam(hdriPitch, "hdriPitch", 0.0f);
+    defineParam(hdriRoll, "hdriRoll", 0.0f);
+    defineParam(hdriWidth, "hdriWidth", 1.0f);
+    defineParam(hdriDepth, "hdriDepth", 1.0f);
+    defineParam(hdriHeight, "hdriHeight", 1.0f);
+    defineParam(hdriFloor, "hdriFloor", 0.0f);
+    defineParam(hdriFlat, "hdriFlat", false);
+    defineParam(reflEnable, "reflEnable", false);
+    defineParam(reflInt, "reflInt", 1.0f);
+    defineParam(reflGain, "reflGain", 1.0f);
+    defineParam(reflFlipX, "reflFlipX", false);
+    defineParam(reflFlipZ, "reflFlipZ", false);
+    defineParam(reflFlipV, "reflFlipV", false);
+    defineParam(diffEnable, "diffEnable", true);
+    defineParam(diffInt, "diffInt", 1.0f);
+    defineParam(diffSoft, "diffSoft", 0.0f);
+    defineParam(pointWeight, "pointWeight", 1.0f);
+    defineParam(ambient, "ambient", 0.0f);
+    defineParam(wrap, "wrap", 0.0f);
+    defineParam(normals01, "normals01", true);
+    defineParam(flipNX, "flipNX", false);
+    defineParam(flipNY, "flipNY", false);
+    defineParam(flipNZ, "flipNZ", false);
+    defineParam(invertDepth, "invertDepth", false);
+    defineParam(depthScale, "depthScale", 1.0f);
+    defineParam(occEnable, "occEnable", true);
+    defineParam(occSteps, "occSteps", 32);
+    defineParam(occBias, "occBias", 0.01f);
+    defineParam(occStrength, "occStrength", 1.0f);
+    defineParam(occSoftness, "occSoftness", 0.05f);
+    defineParam(occMaxDist, "occMaxDist", 200.0f);
+    defineParam(rimEnable, "rimEnable", false);
+    defineParam(rimPower, "rimPower", 3.0f);
+    defineParam(rimInt, "rimInt", 1.0f);
+    defineParam(outputMode, "outputMode", 0);
+    defineParam(useMask, "useMask", false);
+    defineParam(hdriOn, "hdriOn", true);
+    defineParam(albedoDisplay, "albedoDisplay", true);
+    defineParam(origLight, "origLight", 0.0f);
+    defineParam(subjectDepth, "subjectDepth", 0.5f);
+  }
+
+  void init() {
+    bx1 = float(normals.bounds.x1);
+    by1 = float(normals.bounds.y1);
+    bx2 = float(normals.bounds.x2);
+    by2 = float(normals.bounds.y2);
+    imgH = max(by2 - by1, 1.0f);
+    cx = 0.5f * (bx1 + bx2);
+    cy = 0.5f * (by1 + by2);
+    envX0 = hdri.bounds.x1;
+    envY0 = hdri.bounds.y1;
+    envW = hdri.bounds.x2 - hdri.bounds.x1;
+    envH = hdri.bounds.y2 - hdri.bounds.y1;
+    if (envW < 1) envW = 1;
+    if (envH < 1) envH = 1;
+    float d2r = 0.017453293f;
+    sYaw = sin(hdriYaw * d2r);
+    cYaw = cos(hdriYaw * d2r);
+    sPit = sin(hdriPitch * d2r);
+    cPit = cos(hdriPitch * d2r);
+    sRol = sin(hdriRoll * d2r);
+    cRol = cos(hdriRoll * d2r);
+  }
+
+  // ---- depth -------------------------------------------------------------
+
+  // Depth-pass value -> scene depth (0 = camera, larger = further).
+  float toSceneDepth(float d) {
+    float v = d;
+    if (invertDepth) v = 1.0f - v;
+    return v * depthScale;
+  }
+
+  float depthAt(int x, int y) {
+    return toSceneDepth(depth_in(x, y, 0));
+  }
+
+  float depthBilinear(float x, float y) {
+    float fx = floor(x);
+    float fy = floor(y);
+    int x0 = int(fx);
+    int y0 = int(fy);
+    float tx = x - fx;
+    float ty = y - fy;
+    float a = depthAt(x0, y0);
+    float b = depthAt(x0 + 1, y0);
+    float c = depthAt(x0, y0 + 1);
+    float d = depthAt(x0 + 1, y0 + 1);
+    return (a * (1.0f - tx) + b * tx) * (1.0f - ty) + (c * (1.0f - tx) + d * tx) * ty;
+  }
+
+  // ---- environment -------------------------------------------------------
+
+  float3 envTexel(int x, int y) {
+    int xx = x;
+    if (xx < 0) xx = xx + envW;
+    if (xx >= envW) xx = xx - envW;
+    int yy = y;
+    if (yy < 0) yy = 0;
+    if (yy > envH - 1) yy = envH - 1;
+    return float3(hdri(envX0 + xx, envY0 + yy, 0),
+                  hdri(envX0 + xx, envY0 + yy, 1),
+                  hdri(envX0 + xx, envY0 + yy, 2));
+  }
+
+  // Lat-long lookup with yaw / pitch / roll applied to the direction.
+  float3 envSample(float3 dir) {
+    float x1 = dir.x * cYaw + dir.z * sYaw;
+    float z1 = dir.z * cYaw - dir.x * sYaw;
+    float y1 = dir.y;
+    float y2 = y1 * cPit - z1 * sPit;
+    float z2 = y1 * sPit + z1 * cPit;
+    float x3 = x1 * cRol - y2 * sRol;
+    float y3 = x1 * sRol + y2 * cRol;
+    float u = atan2(x3, -z2) * 0.15915494f + 0.5f;
+    float v = asin(clamp(y3, -1.0f, 1.0f)) * 0.31830989f + 0.5f;
+    float px = u * float(envW) - 0.5f;
+    float py = v * float(envH) - 0.5f;
+    float fx = floor(px);
+    float fy = floor(py);
+    int x0 = int(fx);
+    int y0 = int(fy);
+    float tx = px - fx;
+    float ty = py - fy;
+    float3 a = envTexel(x0, y0);
+    float3 b = envTexel(x0 + 1, y0);
+    float3 c = envTexel(x0, y0 + 1);
+    float3 d = envTexel(x0 + 1, y0 + 1);
+    return (a * (1.0f - tx) + b * tx) * (1.0f - ty) + (c * (1.0f - tx) + d * tx) * ty;
+  }
+
+  // Parallax-corrected lookup direction. The HDRI is treated as painted on an
+  // ellipsoid (width / height / depth, in image heights) around the image
+  // centre, with an optional flat floor. A ray leaving surface point `o` in
+  // direction `d` is intersected with that shape; the hit point decides which
+  // part of the HDRI is seen. With all three radii at 1 and no floor this is
+  // close to a plain direction lookup.
+  float3 domeDir(float3 o, float3 d) {
+    float3 r = float3(max(hdriWidth, 0.001f), max(hdriHeight, 0.001f), max(hdriDepth, 0.001f));
+    float3 os = float3(o.x / r.x, o.y / r.y, o.z / r.z);
+    float3 ds = float3(d.x / r.x, d.y / r.y, d.z / r.z);
+    float qa = dot(ds, ds);
+    float qb = dot(os, ds);
+    float qc = dot(os, os) - 1.0f;
+    if (qc >= 0.0f || qa < 0.0000001f) return d;      // surface point outside the dome
+    float t = (sqrt(qb * qb - qa * qc) - qb) / qa;
+    if (hdriFlat) {
+      float floorY = hdriFloor - 0.5f;                 // 0 = bottom edge of frame
+      if (d.y < -0.0001f && floorY < o.y) {
+        float tf = (floorY - o.y) / d.y;
+        if (tf < t) t = tf;
+      }
+    }
+    float3 hp = o + d * t;
+    float3 hit = float3(hp.x / r.x, hp.y / r.y, hp.z / r.z);
+    return hit / max(length(hit), 0.000001f);
+  }
+
+  // ---- lights ------------------------------------------------------------
+
+  float3 lightPos(float2 lp, float lz) {
+    return float3((lp.x - cx) / imgH, (lp.y - cy) / imgH, -lz * depthScale);
+  }
+
+  // Returns rgb = this light's contribution, a = its shadow visibility (1 = lit).
+  float4 shadeLight(int slot, bool en, float2 lp, float lz, float inten,
+                    float fpow, float frad, float3 col, bool directional,
+                    float3 P, float3 Nrm) {
+    if (!en || inten <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    float3 Lp = lightPos(lp, lz);
+    float3 toL = Lp - P;
+    float dist = max(length(toL), 0.00001f);
+    float3 L = toL / dist;
+    if (directional) {
+      // One constant direction for the whole frame: light -> subject centre.
+      float3 c = float3(0.0f, 0.0f, -subjectDepth * depthScale);
+      float3 dv = Lp - c;
+      L = dv / max(length(dv), 0.00001f);
+    }
+
+    float wr = clamp(wrap, 0.0f, 0.99f);
+    float ndl = max((dot(Nrm, L) + wr) / (1.0f + wr), 0.0f);
+    if (ndl <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    // Radius > 0: smooth 1 / (1 + (d/r)^p), half strength at d = r.
+    // Radius = 0: plain power law (inverse-square when power is 2).
+    float att;
+    if (frad > 0.0f) att = 1.0f / (1.0f + pow(dist / frad, fpow));
+    else att = min(1.0f / max(pow(dist, fpow), 0.0001f), 10000.0f);
+
+    float vis = 1.0f;
+    if (occEnable && occStrength > 0.0f) {
+      float maxLen = occMaxDist / imgH;
+      float len = maxLen;
+      if (!directional && dist < maxLen) len = dist;
+      int n = occSteps;
+      if (n < 1) n = 1;
+      float soft = max(occSoftness, 0.00001f);
+      float occ = 0.0f;
+      for (int i = 1; i <= n; i++) {
+        float t = len * float(i) / float(n);
+        float3 S = P + L * t;
+        float sx = S.x * imgH + cx;
+        float sy = S.y * imgH + cy;
+        if (sx < bx1 || sx > bx2 - 1.0f || sy < by1 || sy > by2 - 1.0f) break;
+        // > 0 means the ray has passed behind what the depth pass sees there.
+        float behind = -S.z - depthBilinear(sx, sy);
+        float o = clamp((behind - occBias) / soft, 0.0f, 1.0f);
+        o = o * o * (3.0f - 2.0f * o);
+        if (o > occ) occ = o;
+        if (occ >= 1.0f) break;
+      }
+      vis = 1.0f - clamp(occStrength, 0.0f, 1.0f) * occ;
+    }
+
+    float k = inten * ndl * att * vis;
+    return float4(col.x * k, col.y * k, col.z * k, vis);
+  }
+
+  // ---- main --------------------------------------------------------------
+
+  // sRGB display value -> linear
+  float toLinear(float v) {
+    if (v <= 0.04045f) return max(v, 0.0f) / 12.92f;
+    return pow((v + 0.055f) / 1.055f, 2.4f);
+  }
+
+  void process(int2 pos) {
+    // Output mode 6: fisheye chart of the rotated HDRI.
+    // Centre of the disc = what a camera-facing surface is lit by.
+    if (outputMode == 6) {
+      float ux = (float(pos.x) - cx) / (0.5f * imgH);
+      float uy = (float(pos.y) - cy) / (0.5f * imgH);
+      float rr = sqrt(ux * ux + uy * uy);
+      if (rr > 1.0f) {
+        dst() = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        return;
+      }
+      float th = rr * 3.14159265f;
+      float sc = 0.0f;
+      if (rr > 0.00001f) sc = sin(th) / rr;
+      float3 fe = envSample(float3(ux * sc, uy * sc, cos(th)));
+      dst() = float4(fe.x, fe.y, fe.z, 1.0f);
+      return;
+    }
+
+    float3 nv = float3(normals(pos.x, pos.y, 0), normals(pos.x, pos.y, 1), normals(pos.x, pos.y, 2));
+    if (normals01) nv = nv * 2.0f - float3(1.0f, 1.0f, 1.0f);
+    if (flipNX) nv.x = -nv.x;
+    if (flipNY) nv.y = -nv.y;
+    if (flipNZ) nv.z = -nv.z;
+    float nlen = length(nv);
+    if (nlen < 0.0001f) {
+      dst() = float4(0.0f, 0.0f, 0.0f, 0.0f);
+      return;
+    }
+    float3 Nrm = nv / nlen;
+
+    float sd = depthAt(pos.x, pos.y);
+    float3 P = float3((float(pos.x) - cx) / imgH, (float(pos.y) - cy) / imgH, -sd);
+
+    // Point lights
+    float3 pts = float3(0.0f, 0.0f, 0.0f);
+    float visSum = 0.0f;
+    float visCount = 0.0f;
+    float4 s;
+    s = shadeLight(0, l0Enable, l0Pos, l0Z, l0Int, l0FPow, l0FRad, float3(l0R, l0G, l0B), l0Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l0Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(1, l1Enable, l1Pos, l1Z, l1Int, l1FPow, l1FRad, float3(l1R, l1G, l1B), l1Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l1Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(2, l2Enable, l2Pos, l2Z, l2Int, l2FPow, l2FRad, float3(l2R, l2G, l2B), l2Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l2Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(3, l3Enable, l3Pos, l3Z, l3Int, l3FPow, l3FRad, float3(l3R, l3G, l3B), l3Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l3Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(4, l4Enable, l4Pos, l4Z, l4Int, l4FPow, l4FRad, float3(l4R, l4G, l4B), l4Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l4Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(5, l5Enable, l5Pos, l5Z, l5Int, l5FPow, l5FRad, float3(l5R, l5G, l5B), l5Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l5Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(6, l6Enable, l6Pos, l6Z, l6Int, l6FPow, l6FRad, float3(l6R, l6G, l6B), l6Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l6Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+    s = shadeLight(7, l7Enable, l7Pos, l7Z, l7Int, l7FPow, l7FRad, float3(l7R, l7G, l7B), l7Dir, P, Nrm);
+    pts = pts + float3(s.x, s.y, s.z);
+    if (l7Enable) { visSum = visSum + s.w; visCount = visCount + 1.0f; }
+
+    // Rim: fresnel edge term tinted by light 0, fading on the side that faces
+    // away from light 0.
+    float3 rim = float3(0.0f, 0.0f, 0.0f);
+    if (rimEnable && l0Enable) {
+      float3 toL0 = lightPos(l0Pos, l0Z) - P;
+      float3 L0 = toL0 / max(length(toL0), 0.00001f);
+      float fres = pow(clamp(1.0f - Nrm.z, 0.0f, 1.0f), max(rimPower, 0.01f));
+      float side = clamp(dot(Nrm, L0) * 0.5f + 0.5f, 0.0f, 1.0f);
+      float rk = fres * side * rimInt;
+      rim = float3(l0R * rk, l0G * rk, l0B * rk);
+    }
+
+    // HDRI. Roughness is whatever blur is applied to the HDRI upstream.
+    float3 o = float3(P.x, P.y, 0.0f);
+    float3 diff = float3(0.0f, 0.0f, 0.0f);
+    if (diffEnable) {
+      float ds = clamp(diffSoft, 0.0f, 1.0f);
+      float3 dn = Nrm * (1.0f - ds) + float3(0.0f, 0.0f, ds);
+      dn = dn / max(length(dn), 0.00001f);
+      diff = envSample(domeDir(o, dn)) * diffInt + float3(ambient, ambient, ambient);
+    }
+    float3 refl = float3(0.0f, 0.0f, 0.0f);
+    if (reflEnable) {
+      float3 ng = float3(Nrm.x * reflGain, Nrm.y * reflGain, Nrm.z);
+      ng = ng / max(length(ng), 0.00001f);
+      // mirror the view vector (0,0,1) about the normal
+      float3 R = float3(2.0f * ng.z * ng.x, 2.0f * ng.z * ng.y, 2.0f * ng.z * ng.z - 1.0f);
+      if (reflFlipX) R.x = -R.x;
+      if (reflFlipV) R.y = -R.y;
+      if (reflFlipZ) R.z = -R.z;
+      refl = envSample(domeDir(o, R)) * reflInt;
+    }
+
+    float3 pointTotal = (pts + rim) * pointWeight;
+    float occOut = 1.0f;
+    if (visCount > 0.0f) occOut = visSum / visCount;
+
+    float3 res = pointTotal;                                         // 0 combined
+    if (hdriOn) res = res + diff + refl;                             //   HDRI can be switched out of the combined result
+    if (outputMode == 1) res = pointTotal;                           // 1 lights
+    else if (outputMode == 2) res = refl;                            // 2 HDRI reflect
+    else if (outputMode == 3) res = diff;                            // 3 HDRI diffuse
+    else if (outputMode == 4) res = float3(occOut, occOut, occOut);  // 4 shadows
+    else if (outputMode == 5) res = rim * pointWeight;               // 5 rim
+    else if (outputMode == 7) res = Nrm * 0.5f + float3(0.5f, 0.5f, 0.5f); // 7 normals check
+    else if (outputMode == 8) {                                      // 8 relit: albedo x (new light + some original light)
+      float3 al = float3(albedo(0), albedo(1), albedo(2));
+      float3 ir = float3(irradiance(0), irradiance(1), irradiance(2));
+      if (albedoDisplay) {
+        al = float3(toLinear(al.x), toLinear(al.y), toLinear(al.z));
+        ir = float3(toLinear(ir.x), toLinear(ir.y), toLinear(ir.z));
+      }
+      res = float3(al.x * (res.x + ir.x * origLight), al.y * (res.y + ir.y * origLight), al.z * (res.z + ir.z * origLight));
+    }
+
+    float a = 1.0f;
+    if (useMask) {
+      a = mask(3);
+      res = res * a;
+    }
+    if (outputMode == 7) a = sd;                                     // normals check: scene depth in alpha
+    dst() = float4(res.x, res.y, res.z, a);
+  }
+};
