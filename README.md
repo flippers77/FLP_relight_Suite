@@ -35,7 +35,6 @@ Original work by David Filipe / Electric Theatre Collective. Internal use only (
 |---|---|
 | `relight_interim_no_FLP.json` | Works without the FLP node: one ProRes file per pass (albedo, irradiance, normals, depth; matte saver is muted until the SAM2 click is set). |
 | `relight_packed_FLP.json` | Uses FLP Relight Pack: one packed file per shot. |
-| `sam3_matte_test.json` | Stand-alone test of SAM3 text-prompt mattes (uses the core ComfyUI SAM3 nodes). For comparison only. |
 
 Settings (set in the workflow, notes inside explain each):
 - **Working size:** 1280 (long edge) by default, in the resize node titled WORKING SIZE.
